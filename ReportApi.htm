@@ -1,0 +1,2385 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Open311 v.Future</title>
+    <link rel="stylesheet" href="http://open311.org/wp-content/themes/open311/css/tripoli.visual.css" />
+    <link rel="stylesheet" href="http://open311.org/wp-content/themes/open311/css/tripoli.type.css" />  
+    <link href="http://open311.org/wp-content/themes/open311/css/tripoli.base.css" rel="stylesheet" media="all" />
+    <link rel="stylesheet" href="http://wiki.open311.org/skins/open311/main.css?270" media="screen" />
+
+    <style>
+        @import url( http://open311.org/wp-content/themes/open311/style.css?v=2 );
+        html {
+            background: #fff;
+        }
+        body {
+            background: #fff;
+            padding: 0 2em 2em;
+        }
+        .change {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            color: #a94442;
+            background-color: #f2dede;
+            border-color: #ebccd1;
+            margin-bottom: 0;
+        }
+        tr.change-add > td,
+        span.change-add
+        {
+            background-color: #f2dede !important;
+        }
+        tr.change-update > td,
+        span.change-update {
+            background-color: #fcf8e3 !important;
+        }
+        .strikethrough
+        {
+            text-decoration: line-through;
+        }
+        .intro
+        {
+            background: #f5f5f5;
+            border-bottom: 1px solid #ccc;
+            margin: 0 -2em;
+            padding: 1em 2em 2em;
+        }
+            .intro h1 {
+                border-bottom: 0;
+                font-size: 36px;
+                line-height: 1.1;
+                margin-bottom: 0.2em;
+            }
+            .intro p {
+            font-size: 16px;
+            font-weight: 200;
+            line-height: 1.4;
+        }
+
+        p {
+            margin: 0 0 10px;
+        }
+        .content > h2:first-child {
+            margin-top: 1em;
+        }
+        .intro .change
+        {
+            margin: 0;
+            padding: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="intro">
+        <h1>Open311 Reporting API</h1>
+        <p>This document includes suggested changes to the Open311 GeoReport v2 API to make it a more generic <em>report it</em> API for government.</p>
+        <p>Changes are highlighted in <span class="change">red</span>. Within the API Methods section new attributes or elements are highlighted with a <span class="change-add">red background</span>. Updates to existing elements are highlighted with a <span class="change-update">yellow background</span>.</p>
+    </div>
+
+    <div class="content">
+        <h2>API</h2>
+        <div id="bodyContent">
+
+            <h3 id="siteSub">Collaboration for an Open311 Standard</h3>
+            <p>
+                The GeoReport API v2 allows developers to build applications to both view and report issues which government entities like cities are responsible for addressing. These interactions are often referred to as "service requests" or "calls for service" and have traditionally been handled by custom web forms or phone based call centers (sometimes using the 311 phone number or other short-code). The GeoReport API is designed to allow both government and third party developers to create new applications and technologies that can integrate directly with these same official contact centers in any government that supports the standard. The current specification is focused on location-based non-emergency issues such as graffiti, potholes, and street cleaning.
+            </p><p>
+                The API consists of two main kinds of resources: <span class="strict-value">services</span> and service <span class="strict-value">requests</span>, but some servers that can't generate a realtime service request may also rely on a <span class="strict-value">token</span> resource. In total there are six methods used to interact with these resources: GET services, GET a service definition (a specific service_code id), POST a request, GET requests, GET a request (a specific service_request_id). The documentation below (starting from the API Methods section) is ordered based on a common sequence of interactions where a person first sees a list of available service types, selects one and creates a new service request, and then is able to track the status of that request and other requests. However each method can be accessed independently and some applications may only be focused on querying existing service requests to do analytics.
+            </p>
+            
+            <h2> <span class="mw-headline" id="Service_Discovery">Service Discovery</span></h2>
+            <p>
+                GeoReport v2 and subsequent Open311 APIs are also required to have a standard service discovery file associated with them to provide routing between versions and types of APIs. See the <a href="/Service_Discovery" title="Service Discovery">Service Discovery</a> page for details of the specification.
+            </p>
+            <h2> <span class="mw-headline" id="Internationalization_and_Encoding">Internationalization and Encoding</span></h2>
+            <h3> <span class="mw-headline" id="Date.2Ftime_format"> Date/time format </span></h3>
+            <p>
+                All date/time fields must be formatted in a common subset of ISO 8601 as per the <a href="http://www.w3.org/TR/NOTE-datetime" class="external text" rel="nofollow">w3 note</a>.
+                Timezone information (either Z meaning UTC, or an HH:MM offset from UTC) <b>must</b> be included.
+            </p><p>
+                Examples:
+            </p>
+            <ul>
+                <li>
+                    1994-11-05T08:15:30-05:00 corresponds to November 5, 1994, 8:15:30 am, US Eastern Standard Time.
+                </li>
+                <li>
+                    1994-11-05T13:15:30Z corresponds to the same instant.
+                </li>
+            </ul>
+            <h3> <span class="mw-headline" id="Encoding">Encoding</span></h3>
+            <p>
+                UTF-8 is required everywhere.
+            </p><p>
+                All text returned by the service, whether in XML, JSON, or any other text-based content-type, MUST be encoded as UTF-8. Appropriate HTTP headers must be set, and the root element must be preceded with the XML declaration including the encoding="UTF-8" attribute. All text received by the service from the client will be assumed to be UTF-8 and must be decoded accordingly. Examples of the HTTP content-type headers for each format are shown below under Format Support.
+            </p>
+            <h2> <span class="mw-headline" id="Format_Support">Format Support</span></h2>
+            <p>
+                XML is a required format, but JSON can be provided at the discretion of the API provider. The output formats supported by the provider are indicated through the <a href="/Service_Discovery" title="Service Discovery">Service Discovery</a> formats field for the API endpoint being used. The client can specify the desired format by appending the format name to the resource. For example a GET request to /services.xml for text/xml output from the services resource and /services/01.json for application/json (<a href="http://www.ietf.org/rfc/rfc4627.txt" class="external text" rel="nofollow">RFC 4627</a>) output for a specific service definition.
+            </p><p>
+                The HTTP content-type headers should look like this for each format:
+            </p><p>
+                <b>POST Service Request:</b>
+                Content-Type: application/x-www-form-urlencoded; charset=utf-8
+            </p><p>
+                <b>XML:</b>
+                Content-Type: text/xml; charset=utf-8
+            </p><p>
+                <b>JSON:</b>
+                Content-Type: application/json; charset=utf-8
+            </p>
+            <h3> <span class="mw-headline" id="XML_Support">XML Support</span></h3>
+            <p>
+                XML for the API should be Content-Type: text/xml. The XML output currently defined is schemaless and without a namespace declaration. For now, extending the output with additional namespaces should be done at your own risk. To guarantee that all clients can support the XML output, it is recommended that you adhere to the specification strictly and do not include foreign tags or namespaces. It is also assumed that the default namespace is not specified, but if it must be specified, the XMLNS URI is the URL of the specification: <a href="http://wiki.open311.org/GeoReport_v2" class="external free" rel="nofollow">http://wiki.open311.org/GeoReport_v2</a>
+            </p>
+            <h3> <span class="mw-headline" id="JSON_Support">JSON Support</span></h3>
+            <p>
+                JSON for the API should be Content-Type: application/json. JSON support is based on a programmatic mapping of the XML format using the <a href="http://wiki.open311.org/JSON_and_XML_Conversion#The_Spark_Convention" class="external text" rel="nofollow">Spark Convention</a>. This means that if you have an XML file, you can easily generate the JSON version with XSL. This can be done using a server side XSLT (<a href="http://sandbox.georeport.org/tools/sparkjson/xml2json_spark_php.txt" class="external text" rel="nofollow">php example</a>).
+            </p>
+            <div class="change">
+                The service should also support content negotiation using the Accept HTTP header for extenionless URLs.
+            </div>
+            <h2> <span class="mw-headline" id="Definitions">Definitions</span></h2>
+            <h4> <span class="mw-headline" id="jurisdiction_id">jurisdiction_id</span></h4>
+            <p>
+                As a means to allow this API to distinguish multiple jurisdictions within one API endpoint we've included a "jurisdiction_id" which will be the unique identifier for cities. It has been suggested that we use the jurisdiction's main website root url (without the www) as the "jurisdiction_id". For San Francisco, the jurisdiction_id is sfgov.org. Implementations can ignore this parameter and treat it as an "Optional Argument" if the implementation only serves one jurisdiction.
+            </p>
+            <h4> <span class="mw-headline" id="Optional_Arguments">Optional Arguments</span></h4>
+            <p>
+                "Optional" means that the response should be the same whether a parameter is passed and is empty or is not passed at all. A null parameter should be treated as equivalent to a non-declared parameter in processing the request.
+            </p>
+            <h2> <span class="mw-headline" id="API_methods">API methods</span></h2>
+            <h3> <span class="mw-headline" id="GET_Service_List">GET Service List</span></h3>
+            <table class="method-table">
+                <tbody>
+                    <tr>
+                        <th scope="row">
+                            Purpose
+                        </th>
+                        <td>
+                            provide a list of acceptable 311 service request types and their associated service codes. These request types can be unique to the city/jurisdiction.
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            URL
+                        </th>
+                        <td>
+                            https://[API endpoint]/services.[format]
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Sample URL
+                        </th>
+                        <td>
+                            https://api.city.gov/dev/v2/services.xml?jurisdiction_id=city.gov
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Formats
+                        </th>
+                        <td>
+                            XML (JSON available if denoted by <a href="/Service_Discovery" title="Service Discovery">Service Discovery</a>)
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            HTTP Method
+                        </th>
+                        <td>
+                            GET
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Requires API Key
+                        </th>
+                        <td>
+                            No
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Required_Arguments">Required Arguments</span></h4>
+            <table class="spec-table arguments-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    jurisdiction_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td></td>
+                        <td>
+                            <span style="color: red">This is only required if the endpoint serves multiple jurisdictions</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <h4> <span class="mw-headline" id="Response">Response</span></h4>
+            <table class="spec-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            services ⇊
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            service ↴
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_code
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The unique identifier for the service request type
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_name
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The human readable name of the service request type
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    description
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A brief description of the service request type.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    metadata
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Determines whether there are additional form fields for this service type.
+                            <ul>
+                                <li>
+                                    <span class="strict-value">true</span>: This service request type requires additional metadata so the client will need to make a call to the <a href="#GET_Service_Definition">Service Definition</a> method.
+                                </li>
+                                <li>
+                                    <span class="strict-value">false</span>: No additional information is required and a call to the <a href="#GET_Service_Definition">Service Definition</a> method is not needed.
+                                </li>
+                            </ul>
+                        </td>
+                        <td>
+                            Possible values: <span class="strict-value">true</span>, <span class="strict-value">false</span>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    type
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            <ul>
+                                <li>
+                                    <span class="strict-value">realtime</span>: The service request ID will be returned immediately after the service request is submitted.
+                                </li>
+                                <li>
+                                    <span class="strict-value">batch</span>: A token will be returned immediately after the service request is submitted. This token can then be later used to return the service request ID.
+                                </li>
+                                <li>
+                                    <span class="strict-value">blackbox</span>: No service request ID will be returned after the service request is submitted
+                                </li>
+                            </ul>
+                        </td>
+                        <td>
+                            Possible values: <span class="strict-value">realtime</span>, <span class="strict-value">batch</span>, <span class="strict-value">blackbox</span>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    keywords
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A comma separated list of tags or keywords to help users identify the request type. This can provide synonyms of the service_name and group.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    group
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A category to group this service type within. This provides a way to group several service request types under one category such as "sanitation"
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr class="change-add">
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    customer_required
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A category to group this service type within. This provides a way to group several service request types under one category such as "sanitation"
+                        </td>
+                        <td>
+                            Possible values: <span class="strict-value">required</span>, <span class="strict-value">optional</span>, <span class="strict-value">not_required</span>.
+                        </td>
+                    </tr>
+                    <tr class="change-add">
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    location_required
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A category to group this service type within. This provides a way to group several service request types under one category such as "sanitation"
+                        </td>
+                        <td>
+                            Possible values: <span class="strict-value">required</span>, <span class="strict-value">not_required</span>.
+                        </td>
+                    </tr>
+                    <tr class="change-add">
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    location_type
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The type of location that should be provided:
+                            <ul>
+                                <li>
+                                    <span class="strict-value">any</span>: Any of the following types.
+                                </li>
+                                <li>
+                                    <span class="strict-value">residential</span>: A residential property UPRN as defined in the LLPG or text in the address_string.
+                                </li>
+                                <li>
+                                    <span class="strict-value">commercial</span>: A commercial property UPRN as defined in the LLPG or text in the address_string.
+                                </li>
+                                <li>
+                                    <span class="strict-value">street</span>:  A USRN or text in the address_string.
+                                </li>
+                                <li>
+                                    <span class="strict-value">point</span>:  A point e.g. long/lat
+                                </li>
+                            </ul>
+                        </td>
+                        <td>
+                            Possible values: <span class="strict-value">any</span>, <span class="strict-value">residential</span>, <span class="strict-value">commercial</span>, <span class="strict-value">street</span>, <span class="strict-value">point</span>.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <h4> <span class="mw-headline" id="Possible_Errors">Possible Errors</span></h4>
+            <p>
+                The numbers represent the HTTP status code returned for each error type:
+            </p>
+            <ul>
+                <li>
+                    404 - jurisdiction_id provided was not found (specify in error response)
+                </li>
+                <li>
+                    400 - jurisdiction_id was not provided (specify in error response)
+                </li>
+                <li>
+                    400 - General service error  (Anything that fails during service list processing. The client will need to notify us)
+                </li>
+            </ul>
+            <h3> <span class="mw-headline" id="GET_Service_Definition">GET Service Definition</span></h3>
+            <table class="method-table">
+                <tbody>
+                    <tr>
+                        <th scope="row">
+                            Conditional
+                        </th>
+                        <td>
+                            Yes - <span style="font-weight&nbsp;: bold; color: red">This call is only necessary if the Service selected has metadata set as <i>true</i> from the <i>GET Services</i> response</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Purpose
+                        </th>
+                        <td>
+                            Define attributes associated with a service code. These attributes can be unique to the city/jurisdiction.
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            URL
+                        </th>
+                        <td>
+                            https://[API endpoint]/services/[service_code].[format]
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Sample URL
+                        </th>
+                        <td>
+                            https://api.city.gov/dev/v2/services/033.xml?jurisdiction_id=city.gov
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Formats
+                        </th>
+                        <td>
+                            XML (JSON available if denoted by <a href="/Service_Discovery" title="Service Discovery">Service Discovery</a>)
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            HTTP Method
+                        </th>
+                        <td>
+                            GET
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Requires API Key
+                        </th>
+                        <td>
+                            No
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Required_Arguments_2">Required Arguments</span></h4>
+            <table class="spec-table arguments-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    jurisdiction_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td></td>
+                        <td>
+                            <span style="color: red">This is only required if the endpoint serves multiple jurisdictions</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    <span class="field-url">service_code</span>
+                                </dt>
+                            </dl>
+                        </td>
+                        <td></td>
+                        <td>
+                            The service_code is specified in the main URL path rather than an added query string parameter.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Response_2">Response</span></h4>
+            <table class="spec-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            service_definition ↴
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_code
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Returns the service_code associated with the definition, the same one submitted for this call.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            attributes ⇊
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            attribute ↴
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    variable
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            <ul>
+                                <li>
+                                    <span class="strict-value">true</span> denotes that user input is needed
+                                </li>
+                                <li>
+                                    <span class="strict-value">false</span> means the attribute is only used to present information to the user within the description field
+                                </li>
+                            </ul>
+                        </td>
+                        <td>
+                            Possible values: <span class="strict-value">true</span>, <span class="strict-value">false</span>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    code
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A unique identifier for the attribute
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr class="change-update">
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    datatype
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Denotes the type of field used for user input.
+                            <ul>
+                                <li>
+                                    <span class="strict-value">string</span>: A string of characters without line breaks. Represented in an HTML form using an &lt;input&gt; tag
+                                </li>
+                                <li>
+                                    <span class="strict-value">number</span>: A numeric value. Represented in an HTML form using an &lt;input&gt; tag
+                                </li>
+                                <li>
+                                    <span class="strict-value">datetime</span>: The input generated must be able to transform into a valid ISO 8601 date. Represented in an HTML form using &lt;input&gt; tags
+                                </li>
+                                <li>
+                                    <span class="strict-value">text</span>:  A string of characters that may contain line breaks. Represented in an HTML form using an &lt;textarea&gt; tag
+                                </li>
+                                <li>
+                                    <span class="strict-value">singlevaluelist</span>:  A set of predefined values (specified in this response) where only one value may be selected. Represented in an HTML form using the &lt;select&gt; and &lt;option&gt; tags
+                                </li>
+                                <li>
+                                    <span class="strict-value">multivaluelist</span>:  A set of predefined values (specified in this response) where several values may be selected. Represented in an HTML form using the &lt;select multiple="multiple"&gt; and &lt;option&gt; tags
+                                </li>
+                            </ul>
+
+                            <div class="change">
+                                <p>The list of values to be expanded to include <a href="http://www.w3.org/TR/html5/forms.html#the-input-element">HTML5 input types</a> e.g. <span class="strict-value">hidden</span>, <span class="strict-value">tel</span>, <span class="strict-value">url</span>, <span class="strict-value">email</span>, <span class="strict-value">password</span>, <span class="strict-value">datetime</span>, <span class="strict-value">date</span>, <span class="strict-value">month</span>, <span class="strict-value">week</span>, <span class="strict-value">time</span>, <span class="strict-value">datetime-local</span>, <span class="strict-value">range</span>, <span class="strict-value">color</span>.</p>
+                            </div>
+                        </td>
+                        <td>
+                            Options: <span class="strict-value">string</span>, <span class="strict-value">number</span>, <span class="strict-value">datetime</span>, <span class="strict-value">text</span>, <span class="strict-value">singlevaluelist</span>, <span class="strict-value">multivaluelist</span>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    required
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            <ul>
+                                <li>
+                                    <span class="strict-value">true</span> means that the value is required to submit service request
+                                </li>
+                                <li>
+                                    <span class="strict-value">false</span> means that the value not required.
+                                </li>
+                            </ul>
+                        </td>
+                        <td>
+                            Options: <span class="strict-value">true</span>, <span class="strict-value">false</span>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    datatype_description
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A description of the datatype which helps the user provide their input
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    order
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The sort order that the attributes will be presented to the user. 1 is shown first in the list.
+                        </td>
+                        <td>
+                            Any positive integer not used for other attributes in the same service_code
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    description
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            An description of the attribute field with instructions for the user to find and identify the requested information
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr class="change-add">
+                        <td colspan="3">
+                            The following attributes from the HTML5 specification should be available to support validation of the data including: <span class="strict-value">max</span>, <span class="strict-value">maxlength</span>, <span class="strict-value">min</span>, <span class="strict-value">pattern</span>, <span class="strict-value">placeholder</span>, <span class="strict-value">step</span>.
+
+                            <br><em>Not sure how best to achieve this. Either add each of these as optional elements or have a <span class="strict-value">validation</span> element with child elements.</em>
+
+                        </td>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            values ⇊
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            value ↴
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    key
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The unique identifier associated with an option for singlevaluelist or multivaluelist. This is analogous to the value attribute in an html option tag.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    name
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The human readable title of an option for singlevaluelist or multivaluelist. This is analogous to the innerhtml text node of an html option tag.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr class="change-add">
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    group
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            This is analogous to the optgroup tag.
+                        </td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Possible_Errors_2">Possible Errors</span></h4>
+            <p>
+                The numbers represent the HTTP status code returned for each error type:
+            </p>
+            <ul>
+                <li>
+                    404 - service_code or jurisdiction_id provided were not found (specify in error response)
+                </li>
+                <li>
+                    400 - service_code or jurisdiction_id was not provided (specify in error response)
+                </li>
+                <li>
+                    400 - General service error  (Anything that fails during service list processing. The client will need to notify us)
+                </li>
+            </ul>
+            
+            <h3> <span class="mw-headline" id="POST_Service_Request">POST Service Request</span></h3>
+            <table class="method-table">
+                <tbody>
+                    <tr>
+                        <th scope="row">
+                            Purpose
+                        </th>
+                        <td>
+                            Create service requests
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            URL
+                        </th>
+                        <td>
+                            https://[API endpoint]/requests.[format]
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Sample URL
+                        </th>
+                        <td>
+                            https://api.city.gov/dev/v2/requests.xml
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Format sent
+                        </th>
+                        <td>
+                            Content-Type: application/x-www-form-urlencoded
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Formats returned
+                        </th>
+                        <td>
+                            XML (JSON available if denoted by <a href="/Service_Discovery" title="Service Discovery">Service Discovery</a>)
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            HTTP Method
+                        </th>
+                        <td>
+                            POST
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Requires API Key
+                        </th>
+                        <td>
+                            Yes
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Required_Arguments_3">Required Arguments</span></h4>
+            <table class="spec-table arguments-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    jurisdiction_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td></td>
+                        <td>
+                            <span style="color: red">This is only required if the endpoint serves multiple jurisdictions</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_code
+                                </dt>
+                            </dl>
+                        </td>
+                        <td></td>
+                        <td>
+                            This is obtained from <a href="#GET_Service_List">GET Service List</a> method
+                        </td>
+                    </tr>
+                    <tr class="change-update">
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    <span class="field-alternatives">location parameter</span>
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            <span class="strikethrough">A full location parameter must be submitted.</span>
+                        </td>
+                        <td>
+                            One of <span class="strict-value">lat</span> &amp; <span class="strict-value">long</span> or <span class="strict-value">address_string</span> or <span class="strict-value">address_id</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    attribute
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            An array of key/value responses based on Service Definitions.
+                        </td>
+                        <td>
+                            This takes the form of attribute[code]=value where multiple code/value pairs can be specified as well as multiple values for the same code in the case of a multivaluelist datatype (attribute[code1][]=value1&amp;attribute[code1][]=value2&amp;attribute[code1][]=value3) - see example. <br><span style="color:red">This is only required if the service_code requires a service definition with required fields</span>.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Optional_Arguments_2">Optional Arguments</span></h4>
+            <table class="spec-table arguments-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    lat
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Latitude using the <a href="http://en.wikipedia.org/wiki/World_Geodetic_System" class="external text" rel="nofollow">(WGS84)</a> projection.
+                        </td>
+                        <td>
+                            <span class="strict-value">lat</span> &amp; <span class="strict-value">long</span> both need to be sent even though they are sent as two separate parameters. <span class="strict-value">lat</span> &amp; <span class="strict-value">long</span> are required if no <span class="strict-value">address_string</span> or <span class="strict-value">address_id</span> is provided.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    long
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Longitude using the <a href="http://en.wikipedia.org/wiki/World_Geodetic_System" class="external text" rel="nofollow">(WGS84)</a> projection.
+                        </td>
+                        <td>
+                            <span class="strict-value">lat</span> &amp; <span class="strict-value">long</span> both need to be sent even though they are sent as two separate parameters. <span class="strict-value">lat</span> &amp; <span class="strict-value">long</span> are required if no <span class="strict-value">address_string</span> or <span class="strict-value">address_id</span> is provided.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    address_string
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Human entered address or description of location.
+                        </td>
+                        <td>
+                            This is required if no <span class="strict-value">lat</span>/<span class="strict-value">long</span> or <span class="strict-value">address_id</span> are provided. This should be written from most specific to most general geographic unit, eg address number or cross streets, street name, neighborhood/district, city/town/village, county, postal code.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    address_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The internal address ID used by a jurisdiction's master address repository or other addressing system.
+                        </td>
+                        <td>
+                            This is required if no <span class="strict-value">lat</span>/<span class="strict-value">long</span> or <span class="strict-value">address_string</span> are provided.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    email
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The email address of the person submitting the request
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    device_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The unique device ID of the device submitting the request. This is usually only used for mobile devices.
+                        </td>
+                        <td>
+                            Android devices can use TelephonyManager.getDeviceId() and iPhones can use [UIDevice currentDevice].uniqueIdentifier
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    account_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The unique ID for the user account of the person submitting the request
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    first_name
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The given name of the person submitting the request
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    last_name
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The family name of the person submitting the request
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    phone
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The phone number of the person submitting the request
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    description
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A full description of the request or report being submitted.
+                        </td>
+                        <td>
+                            This may contain line breaks, but not html or code. Otherwise, this is free form text limited to 4,000 characters.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    media_url
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A URL to media associated with the request, eg an image.
+                        </td>
+                        <td>
+                            A convention for parsing media from this URL has yet to be established, so currently it will be done on a case by case basis much like Twitter.com does. For example, if a jurisdiction accepts photos submitted via Twitpic.com, then clients can parse the page at the Twitpic URL for the image given the conventions of Twitpic.com. This could also be a URL to a media RSS feed where the clients can parse for media in a more structured way.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Response_3">Response</span></h4>
+            <table class="spec-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            service_requests ⇊
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            request ↴
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_request_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The unique ID of the service request created.
+                        </td>
+                        <td>
+                            <span style="color: red">This should not be returned if token is returned</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    token
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            If returned, use this to call <a href="#GET_service_request_id_from_a_token">GET service_request_id from a token</a>.
+                        </td>
+                        <td>
+                            <span style="color: red">This should not be returned if service_request_id is returned</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_notice
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Information about the action expected to fulfill the request or otherwise address the information reported.
+                        </td>
+                        <td>
+                            May not be returned
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    account_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The unique ID for the user account of the person submitting the request.
+                        </td>
+                        <td>
+                            May not be returned
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Possible_Errors_3">Possible Errors</span></h4>
+            <p>
+                The numbers represent the HTTP status code returned for each error type:
+            </p>
+            <ul>
+                <li>
+                    404 - service_code or jurisdiction_id was not found (specified in error response)
+                </li>
+                <li>
+                    400 - service_code or jurisdiction_id was not provided (specified in error response)
+                </li>
+                <li>
+                    400 - General Service Error (Any failure during create request processing, eg CRM is down. Client will need to notify us)
+                </li>
+            </ul>
+            
+            <h3> <span class="mw-headline" id="GET_service_request_id_from_a_token">GET service_request_id from a token</span></h3>
+            <table class="method-table">
+                <tbody>
+                    <tr>
+                        <th scope="row">
+                            Conditional
+                        </th>
+                        <td>
+                            Yes - <span style="font-weight&nbsp;: bold; color: red">This call is only necessary if the response from <i>POST Service Request</i> contains a token</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Purpose
+                        </th>
+                        <td>
+                            Get the service_request_id from a temporary token. This is unnecessary if the response from creating a service request does not contain a token.
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            URL
+                        </th>
+                        <td>
+                            https://[API endpoint]/tokens/[token id].[format]
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Sample URL
+                        </th>
+                        <td>
+                            https://api.city.gov/dev/v2/tokens/123456.xml?jurisdiction_id=city.gov
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Formats
+                        </th>
+                        <td>
+                            XML (JSON available if denoted by <a href="/Service_Discovery" title="Service Discovery">Service Discovery</a>)
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            HTTP Method
+                        </th>
+                        <td>
+                            GET
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Requires API Key
+                        </th>
+                        <td>
+                            No
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Required_Arguments_4">Required Arguments</span></h4>
+            <table class="spec-table arguments-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    jurisdiction_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td></td>
+                        <td>
+                            <span style="color: red">This is only required if the endpoint serves multiple jurisdictions</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    <span class="field-url">token</span>
+                                </dt>
+                            </dl>
+                        </td>
+                        <td></td>
+                        <td>
+                            This is obtained from the <a href="#POST_Service_Requests">POST Service Requests</a> method
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Response_4">Response</span></h4>
+            <table class="spec-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            service_requests ⇊
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            request ↴
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_request_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The unique ID for the service request created. This can be used to call the <a href="#GET_Service_Request">GET Service Request</a> method.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    token
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The token ID used to make this call.
+                        </td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Possible_Errors_4">Possible Errors</span></h4>
+            <p>
+                The numbers represent the HTTP status code returned for each error type:
+            </p>
+            <ul>
+                <li>
+                    404 - jurisdiction_id or token not found (specified in error response)
+                </li>
+                <li>
+                    400 - jurisdiction_id or token was not provided (specified in error response)
+                </li>
+                <li>
+                    400 - General Service error (Any failure during service query processing. Client will have to notify us)
+                </li>
+            </ul>
+            
+            <h3> <span class="mw-headline" id="GET_Service_Requests">GET Service Requests</span></h3>
+            <table class="method-table">
+                <tbody>
+                    <tr>
+                        <th scope="row">
+                            Purpose
+                        </th>
+                        <td>
+                            Query the current status of multiple requests
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            URL
+                        </th>
+                        <td>
+                            https://[API endpoint]/requests.[format]
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Sample URL
+                        </th>
+                        <td>
+                            https://api.city.gov/dev/v2/requests.xml?start_date=2010-05-24T00:00:00Z&amp;end_date=2010-06-24T00:00:00Z&amp;status=open&amp;jurisdiction_id=city.gov
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Formats
+                        </th>
+                        <td>
+                            XML (JSON available if denoted by <a href="/Service_Discovery" title="Service Discovery">Service Discovery</a>)
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            HTTP Method
+                        </th>
+                        <td>
+                            GET
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Requires API Key
+                        </th>
+                        <td>
+                            No
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Required_Arguments_5">Required Arguments</span></h4>
+            <table class="spec-table arguments-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    jurisdiction_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td></td>
+                        <td>
+                            <span style="color: red">This is only required if the endpoint serves multiple jurisdictions</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <h4> <span class="mw-headline" id="Optional_Arguments_3">Optional Arguments</span></h4>
+            <table class="spec-table arguments-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_request_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            To call multiple Service Requests at once, multiple service_request_id can be declared; comma delimited.
+                        </td>
+                        <td>
+                            This overrides all other arguments.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_code
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Specify the service type by calling the unique ID of the service_code.
+                        </td>
+                        <td>
+                            This defaults to all service codes when not declared; can be declared multiple times, comma delimited
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    start_date
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Earliest datetime to include in search. When provided with end_date, allows one to search for requests which have a requested_datetime that matches a given range, but may not span more than 90 days.
+                        </td>
+                        <td>
+                            When not specified, the range defaults to most recent 90 days. Must use w3 format, eg 2010-01-01T00:00:00Z.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    end_date
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Latest datetime to include in search. When provided with start_date, allows one to search for requests which have a requested_datetime that matches a given range, but may not span more than 90 days.
+                        </td>
+                        <td>
+                            When not specified, the range defaults to most recent 90 days. Must use w3 format, eg 2010-01-01T00:00:00Z.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    status
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Allows one to search for requests which have a specific status. This defaults to all statuses; can be declared multiple times, comma delimited;
+                        </td>
+                        <td>
+                            Options: <span class="strict-value">open</span>, <span class="strict-value">closed</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <h4> <span class="mw-headline" id="Response_5">Response</span></h4>
+            <table class="spec-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            service_requests ⇊
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            request ↴
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_request_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The unique ID of the service request created.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    status
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The current status of the service request.
+                            <ul>
+                                <li>
+                                    <span class="strict-value">open</span>: it has been reported.
+                                </li>
+                                <li>
+                                    <span class="strict-value">closed</span>: it has been resolved.
+                                </li>
+                            </ul>
+                        </td>
+                        <td>
+                            Options: <span class="strict-value">open</span>, <span class="strict-value">closed</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    status_notes
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Explanation of why status was changed to current state or more details on current status than conveyed with status alone.
+                        </td>
+                        <td>
+                            May not be returned
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_name
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The human readable name of the service request type
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_code
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The unique identifier for the service request type
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    description
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A full description of the request or report submitted.
+                        </td>
+                        <td>
+                            This may contain line breaks, but not html or code. Otherwise, this is free form text limited to 4,000 characters.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    agency_responsible
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The agency responsible for fulfilling or otherwise addressing the service request.
+                        </td>
+                        <td>
+                            May not be returned
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_notice
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Information about the action expected to fulfill the request or otherwise address the information reported.
+                        </td>
+                        <td>
+                            May not be returned
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    requested_datetime
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The date and time when the service request was made.
+                        </td>
+                        <td>
+                            Returned in w3 format, eg 2010-01-01T00:00:00Z
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    updated_datetime
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The date and time when the service request was last modified. For requests with status=closed, this will be the date the request was closed.
+                        </td>
+                        <td>
+                            Returned in w3 format, eg 2010-01-01T00:00:00Z
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    expected_datetime
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The date and time when the service request can be expected to be fulfilled. This may be based on a service-specific service level agreement.
+                        </td>
+                        <td>
+                            May not be returned
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    address
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Human readable address or description of location.
+                        </td>
+                        <td>
+                            This should be provided from most specific to most general geographic unit, eg address number or cross streets, street name, neighborhood/district, city/town/village, county, postal code.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    address_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The internal address ID used by a jurisdictions master address repository or other addressing system.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    zipcode
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The postal code for the location of the service request.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    lat
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            latitude using the <a href="http://en.wikipedia.org/wiki/World_Geodetic_System" class="external text" rel="nofollow">(WGS84)</a> projection.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    long
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            longitude using the <a href="http://en.wikipedia.org/wiki/World_Geodetic_System" class="external text" rel="nofollow">(WGS84)</a> projection.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    media_url
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A URL to media associated with the request, eg an image.
+                        </td>
+                        <td>
+                            A convention for parsing media from this URL has yet to be established, so currently it will be done on a case by case basis much like Twitter.com does. For example, if a jurisdiction accepts photos submitted via Twitpic.com, then clients can parse the page at the Twitpic URL for the image given the conventions of Twitpic.com. This could also be a URL to a media RSS feed where the clients can parse for media in a more structured way.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Response_Volume">Response Volume</span></h4>
+            <ul>
+                <li>
+                    Default query limit is a span of 90 days or first 1000 requests returned, whichever is smallest.
+                </li>
+            </ul>
+            <h4> <span class="mw-headline" id="Possible_Errors_5">Possible Errors</span></h4>
+            <p>
+                The numbers represent the HTTP status code returned for each error type:
+            </p>
+            <ul>
+                <li>
+                    404 - jurisdiction_id not found (specified in error response)
+                </li>
+                <li>
+                    400 - jurisdiction_id was not provided (specified in error response)
+                </li>
+                <li>
+                    400 - General Service error (Any failure during service query processing. Client will have to notify us)
+                </li>
+            </ul>
+            <p>
+                <br>
+            </p>
+            
+            <h3> <span class="mw-headline" id="GET_Service_Request">GET Service Request</span></h3>
+            <table class="method-table">
+                <tbody>
+                    <tr>
+                        <th scope="row">
+                            Purpose
+                        </th>
+                        <td>
+                            Query the current status of an individual request
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            URL
+                        </th>
+                        <td>
+                            https://[API endpoint]/requests/[service_request_id].[format]
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Sample URL
+                        </th>
+                        <td>
+                            https://api.city.gov/dev/v2/requests/123456.xml?jurisdiction_id=city.gov
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Formats
+                        </th>
+                        <td>
+                            XML (JSON available if denoted by <a href="/Service_Discovery" title="Service Discovery">Service Discovery</a>)
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            HTTP Method
+                        </th>
+                        <td>
+                            GET
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            Requires API Key
+                        </th>
+                        <td>
+                            No
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Required_Arguments_6">Required Arguments</span></h4>
+            <table class="spec-table arguments-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    jurisdiction_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td></td>
+                        <td>
+                            <span style="color: red">This is only required if the endpoint serves multiple jurisdictions</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    <span class="field-url">service_request_id</span>
+                                </dt>
+                            </dl>
+                        </td>
+                        <td></td>
+                        <td>
+                            The service_request_id is specified in the main URL path rather than an added query string parameter.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Optional_Arguments_4">Optional Arguments</span></h4>
+            <p>
+                None
+            </p>
+            <h4> <span class="mw-headline" id="Response_6">Response</span></h4>
+            <table class="spec-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            service_requests ⇊
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            request ↴
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_request_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The unique ID of the service request created.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    status
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The current status of the service request.
+                            <ul>
+                                <li>
+                                    <span class="strict-value">open</span>: it has been reported.
+                                </li>
+                                <li>
+                                    <span class="strict-value">closed</span>: it has been resolved.
+                                </li>
+                            </ul>
+                        </td>
+                        <td>
+                            Options: <span class="strict-value">open</span>, <span class="strict-value">closed</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    status_notes
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Explanation of why status was changed to current state or more details on current status than conveyed with status alone.
+                        </td>
+                        <td>
+                            May not be returned
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_name
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The human readable name of the service request type
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_code
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The unique identifier for the service request type
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    description
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A full description of the request or report submitted.
+                        </td>
+                        <td>
+                            This may contain line breaks, but not html or code. Otherwise, this is free form text limited to 4,000 characters.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    agency_responsible
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The agency responsible for fulfilling or otherwise addressing the service request.
+                        </td>
+                        <td>
+                            May not be returned
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    service_notice
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Information about the action expected to fulfill the request or otherwise address the information reported.
+                        </td>
+                        <td>
+                            May not be returned
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    requested_datetime
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The date and time when the service request was made.
+                        </td>
+                        <td>
+                            Returned in w3 format, eg 2010-01-01T00:00:00Z
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    updated_datetime
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The date and time when the service request was last modified. For requests with status=closed, this will be the date the request was closed.
+                        </td>
+                        <td>
+                            Returned in w3 format, eg 2010-01-01T00:00:00Z
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    expected_datetime
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The date and time when the service request can be expected to be fulfilled. This may be based on a service-specific service level agreement.
+                        </td>
+                        <td>
+                            May not be returned
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    address
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            Human readable address or description of location.
+                        </td>
+                        <td>
+                            This should be provided from most specific to most general geographic unit, eg address number or cross streets, street name, neighborhood/district, city/town/village, county, postal code.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    address_id
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The internal address ID used by a jurisdictions master address repository or other addressing system.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    zipcode
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The postal code for the location of the service request.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    lat
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            latitude using the <a href="http://en.wikipedia.org/wiki/World_Geodetic_System" class="external text" rel="nofollow">(WGS84)</a> projection.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    long
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            longitude using the <a href="http://en.wikipedia.org/wiki/World_Geodetic_System" class="external text" rel="nofollow">(WGS84)</a> projection.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    media_url
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A URL to media associated with the request, eg an image.
+                        </td>
+                        <td>
+                            A convention for parsing media from this URL has yet to be established, so currently it will be done on a case by case basis much like Twitter.com does. For example, if a jurisdiction accepts photos submitted via Twitpic.com, then clients can parse the page at the Twitpic URL for the image given the conventions of Twitpic.com. This could also be a URL to a media RSS feed where the clients can parse for media in a more structured way.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>
+                <br>
+            </p>
+            <h4> <span class="mw-headline" id="Possible_Errors_6">Possible Errors</span></h4>
+            <p>
+                The numbers represent the HTTP status code returned for each error type:
+            </p>
+            <ul>
+                <li>
+                    404 - jurisdiction_id not found (specified in error response)
+                </li>
+                <li>
+                    400 - jurisdiction_id was not provided (specified in error response)
+                </li>
+                <li>
+                    400 - General Service error (Any failure during service query processing. Client will have to notify us)
+                </li>
+            </ul>
+            <h3> <span class="mw-headline" id="Errors">Errors</span></h3>
+            <h4> <span class="mw-headline" id="Response_7">Response</span></h4>
+            <table class="spec-table">
+                <tbody>
+                    <tr>
+                        <th>
+                            Field Name
+                        </th>
+                        <th class="spec-description">
+                            Description
+                        </th>
+                        <th class="spec-requirements">
+                            Notes &amp; Requirements
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            errors ⇊
+                        </th>
+                    </tr>
+                    <tr>
+                        <th colspan="3" class="response-container">
+                            error ↴
+                        </th>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    code
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            The error code representing the type of error. In most cases, this should match the HTTP status code returned in the HTTP header.
+                        </td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td class="field">
+                            <dl>
+                                <dt>
+                                    description
+                                </dt>
+                            </dl>
+                        </td>
+                        <td>
+                            A human readable description of the error that occurred. This is meant to be seen by the user.
+                        </td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+            <ul>
+                <li>
+                    <b>General Errors</b>
+                    <ul>
+                        <li>
+                            403 - Missing or Invalid API Key (specify in error message)
+                        </li>
+                        <li>
+                            400 - The URL request is invalid  or open311 service is not running or reachable. Client should notify us after checking URL
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+            <p>
+                HTTP error codes are required, but the code in the response body shouldn't necessarily match the HTTP error code, so that more specific and unique error code identifiers can be used. The HTTP error codes should always be 404 for resources that don't exist, 403 for errors because of wrong or missing api_key and basically 400 for any other error where the request can not be fulfilled as expected. Multiple errors codes and descriptions can be returned in the body (the response is an array).
+            </p>
+
+        </div>
+    </div>
+</body>
+</html>
